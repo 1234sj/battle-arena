@@ -11,6 +11,15 @@ import updater
 
 pygame.init()
 
+def check_for_updates():
+    try:
+        import updater
+        if updater.check_and_update():
+            # 更新完成后重启游戏
+            print("Update installed! Please restart the game.")
+    except Exception as e:
+        print(f"Update check failed: {e}")
+
 
 class Game:
     def __init__(self):
@@ -441,10 +450,6 @@ class Game:
 
 
 if __name__ == "__main__":
-    # 检查更新（启动时）
-    try:
-        updater.check_and_update()
-    except:
-        pass  # 更新失败不影响游戏
+    check_for_updates()  # 启动时检查更新
     game = Game()
     game.run()
