@@ -8,6 +8,7 @@ import os
 from config import *
 from character import Character
 import updater
+import subprocess
 
 pygame.init()
 
