@@ -9,7 +9,7 @@ from config import *
 from character import Character
 import updater
 import subprocess
-
+VERSION_FILE = os.path.join(os.path.dirname(__file__), "version.json")
 pygame.init()
 
 def check_for_updates():
@@ -244,6 +244,14 @@ class Game:
             pct = f"{(s['wins'] / s['total'] * 100):.1f}%" if s['total'] > 0 else "N/A"
             line = self.font_tiny.render(f"{char.replace('_', ' ').title()}: {wr} ({pct})", True, GRAY)
             self.screen.blit(line, (50, 575 + i * 22))
+
+        version = "1.0.0"
+        if os.path.exists(VERSION_FILE):
+            with open(VERSION_FILE, 'r') as f:
+                data = json.load(f)
+                version = data.get('version', '1.0.0')
+        ver_text = self.font_tiny.render(f"Version: {version}", True, (100, 100, 100))
+        self.screen.blit(ver_text, (WINDOW_WIDTH - 120, WINDOW_HEIGHT - 25))
 
         pygame.display.flip()
 

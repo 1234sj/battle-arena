@@ -1,10 +1,42 @@
 # D:\deeplearning\play\poker_master\poker_master.py
+
 import pygame
 import math
 from .poker_weapon import PokerDeck
 from character import Projectile
 
 PROJECTILE_SPEED = 15
+
+
+def draw_suit_symbol(screen, suit, cx, cy, size=10, color=(0, 0, 0)):
+    """Draw suit symbol instead of letter"""
+    if suit in ['a', 'c']:  # Spades, Clubs - black
+        color = (0, 0, 0)
+    else:  # Hearts, Diamonds - red
+        color = (255, 0, 0)
+
+    if suit == 'a':  # Spade
+        points = [(cx, cy - size), (cx + size // 2, cy - size // 2), (cx + size // 4, cy),
+                  (cx + size // 2, cy + size), (cx, cy + size // 2),
+                  (-cx + size // 2, cy + size), (-cx + size // 4, cy), (-cx + size // 2, cy - size // 2)]
+        # Simplified spade
+        pygame.draw.circle(screen, color, (cx - size // 4, cy), size // 2)
+        pygame.draw.circle(screen, color, (cx + size // 4, cy), size // 2)
+        pygame.draw.polygon(screen, color, [(cx - size // 3, cy), (cx, cy + size), (cx + size // 3, cy)])
+        pygame.draw.rect(screen, color, (cx - 1, cy, 2, size))
+    elif suit == 'b':  # Heart
+        pygame.draw.circle(screen, color, (cx - size // 4, cy - size // 4), size // 2)
+        pygame.draw.circle(screen, color, (cx + size // 4, cy - size // 4), size // 2)
+        pygame.draw.polygon(screen, color, [(cx - size // 2 + 2, cy - size // 4), (cx + size // 2 - 2, cy - size // 4),
+                                            (cx, cy + size)])
+    elif suit == 'c':  # Club
+        pygame.draw.circle(screen, color, (cx, cy - size // 2), size // 3)
+        pygame.draw.circle(screen, color, (cx - size // 3, cy), size // 3)
+        pygame.draw.circle(screen, color, (cx + size // 3, cy), size // 3)
+        pygame.draw.rect(screen, color, (cx - 1, cy, 2, size))
+    elif suit == 'd':  # Diamond
+        pygame.draw.polygon(screen, color,
+                            [(cx, cy - size), (cx + size // 2, cy), (cx, cy + size), (cx - size // 2, cy)])
 
 
 class PokerMaster:
@@ -86,20 +118,25 @@ class PokerMaster:
             return
         x = self.char.x
         y = self.char.y - self.char.radius - 80
-        w = len(self.cards) * 35 + 10
+        w = len(self.cards) * 40 + 10
         pygame.draw.rect(screen, (50, 50, 50), (x - w // 2, y - 35, w, 55))
         pygame.draw.rect(screen, (200, 200, 200), (x - w // 2, y - 35, w, 55), 2)
 
         sf = pygame.font.Font(None, 18)
         for i, c in enumerate(self.cards):
             if i < self.show_idx:
-                cx = x - (len(self.cards) * 35) // 2 + 17 + i * 35
-                color = self.deck.card_color(c)
-                cr = pygame.Rect(cx - 13, y - 10, 26, 20)
+                cx = x - (len(self.cards) * 40) // 2 + 20 + i * 40
+                # Draw card background
+                cr = pygame.Rect(cx - 16, y - 12, 32, 24)
                 pygame.draw.rect(screen, (255, 255, 255), cr)
                 pygame.draw.rect(screen, (0, 0, 0), cr, 1)
-                t = sf.render(c, True, color)
-                screen.blit(t, t.get_rect(center=(cx, y)))
+                # Draw value (number/letter)
+                value = c[:-1]
+                suit = c[-1]
+                vt = sf.render(value, True, (0, 0, 0))
+                screen.blit(vt, (cx - 14, y - 10))
+                # Draw suit symbol
+                draw_suit_symbol(screen, suit, cx + 6, y + 2, 8)
 
         if self.show_idx >= len(self.cards):
             mf = pygame.font.Font(None, 20)
