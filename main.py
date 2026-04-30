@@ -18,8 +18,8 @@ def check_for_updates():
         if updater.check_and_update():
             # 更新完成后重启游戏
             print("Update installed! Please restart the game.")
-    except Exception as e:
-        print(f"Update check failed: {e}")
+    except:
+        pass
 
 
 class Game:
