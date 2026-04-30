@@ -1,0 +1,22 @@
+{
+  "poker_master": {
+    "wins": 0,
+    "total": 3
+  },
+  "boxer": {
+    "wins": 0,
+    "total": 0
+  },
+  "cowboy": {
+    "wins": 0,
+    "total": 0
+  },
+  "tennis_winner": {
+    "wins": 0,
+    "total": 0
+  },
+  "baddoctor": {
+    "wins": 3,
+    "total": 3
+  }
+}
