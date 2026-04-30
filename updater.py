@@ -7,7 +7,7 @@ import urllib.request
 import zipfile
 import shutil
 
-GITHUB_REPO = "你的用户名/你的仓库名"  # 改成你的
+GITHUB_REPO = "你的用户名/battle-arena"  # 改成你的
 UPDATE_URL = f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip"
 VERSION_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/version.json"
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
