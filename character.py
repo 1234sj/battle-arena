@@ -22,6 +22,9 @@ class Projectile:
         self.color = color
         self.radius = radius
         self.is_syringe = False
+        self.target_x = 0
+        self.target_y = 0
+        self.is_crit = False
 
     def update(self):
         self.x += self.vx
@@ -46,10 +49,10 @@ class Character:
         self.opponent = None
         self.color = BLUE if name == "P" else RED
         self.damage_texts = []
+        self.flash_timer = 0
 
         self.special = None
 
-        # Debuff system
         self.debuff_level = 0
         self.debuff_timer = 0
         self.original_speed = None
@@ -72,6 +75,9 @@ class Character:
         elif self.char_type == "baddoctor":
             from baddoctor.baddoctor import BadDoctor
             self.special = BadDoctor(self)
+        elif self.char_type == "pinpang_gay":
+            from pinpang_gay.pinpang_gay import PinPangGay
+            self.special = PinPangGay(self)
 
     def update(self):
         self.x += self.vx
@@ -80,14 +86,10 @@ class Character:
         if self.special:
             self.special.update()
 
-        # Update debuff
         self.update_debuff()
 
-        for dt in self.damage_texts[:]:
-            dt['timer'] -= 1 / 60
-            dt['y'] -= 1
-            if dt['timer'] <= 0:
-                self.damage_texts.remove(dt)
+        if self.flash_timer > 0:
+            self.flash_timer -= 1 / 60
 
     def update_debuff(self):
         if self.debuff_level > 0:
@@ -95,7 +97,7 @@ class Character:
             if self.debuff_timer <= 0:
                 self.remove_debuff()
             else:
-                damage_per_sec = {1: 10, 2: 15, 3: 24}
+                damage_per_sec = {1: 25, 2: 30, 3: 40}
                 self.hp -= damage_per_sec[self.debuff_level] / 60
                 if self.hp < 0:
                     self.hp = 0
@@ -127,13 +129,16 @@ class Character:
             self.vy = self.vy / current_speed * speed
 
     def take_damage(self, damage, projectile=None):
-        # Check for syringe debuff
         if projectile and hasattr(projectile, 'is_syringe') and projectile.is_syringe:
             self.apply_debuff()
 
         if self.char_type == "tennis_winner" and self.special and self.special.is_swinging and projectile:
             self.special.reflect(projectile)
             return
+
+        if projectile and hasattr(projectile, 'shooter') and projectile.shooter:
+            if projectile.shooter.char_type == "tennis_winner" and projectile.shooter.special:
+                projectile.shooter.special.on_hit()
 
         self.hp -= damage
         if self.hp < 0:
@@ -148,18 +153,40 @@ class Character:
         })
 
     def draw(self, screen, font):
+        # 更新伤害文字
+        for dt in self.damage_texts[:]:
+            dt['timer'] -= 1 / 60
+            dt['y'] -= 1
+            if dt['timer'] <= 0:
+                self.damage_texts.remove(dt)
+
+        # 死了只显示伤害文字
+        if self.hp <= 0:
+            tiny_font = pygame.font.Font(None, 20)
+            for dt in self.damage_texts:
+                txt = tiny_font.render(f"-{dt['damage']}", True, dt['color'])
+                tr = txt.get_rect(center=(dt['x'], dt['y']))
+                screen.blit(txt, tr)
+            return
+
+        # Flash effect
+        alpha = 128 if self.flash_timer > 0 else 255
+
         # Glow for boxer speed boost
         if self.char_type == "boxer" and self.special and self.special.speed_boosted:
             pygame.draw.circle(screen, YELLOW, (int(self.x), int(self.y)), self.radius + 5, 2)
 
-        # Ball
-        pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.radius)
-        pygame.draw.circle(screen, WHITE, (int(self.x), int(self.y)), self.radius, 2)
+        # Ball with alpha
+        s = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(s, (*self.color, alpha), (self.radius, self.radius), self.radius)
+        pygame.draw.circle(s, (*WHITE, alpha), (self.radius, self.radius), self.radius, 2)
 
         # Name
-        text = font.render(self.name, True, WHITE)
-        tr = text.get_rect(center=(int(self.x), int(self.y)))
-        screen.blit(text, tr)
+        font_surface = font.render(self.name, True, (*WHITE, alpha))
+        name_rect = font_surface.get_rect(center=(self.radius, self.radius))
+        s.blit(font_surface, name_rect)
+
+        screen.blit(s, (int(self.x) - self.radius, int(self.y) - self.radius))
 
         # Damage texts
         tiny_font = pygame.font.Font(None, 20)
@@ -171,7 +198,7 @@ class Character:
         # Debuff display
         if self.debuff_level > 0:
             debuff_text = font.render(f"DEBUFF Lv{self.debuff_level}", True, (255, 0, 255))
-            tr = debuff_text.get_rect(center=(self.x, self.y - self.radius - 50))
+            tr = debuff_text.get_rect(center=(self.x, self.y + self.radius + 20))
             screen.blit(debuff_text, tr)
 
         # Special draw

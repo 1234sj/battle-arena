@@ -19,11 +19,16 @@ PURPLE = (128, 0, 128)
 CYAN = (0, 255, 255)
 
 # Game settings
-FRAME_SIZE = 400           # Battle frame size
-BALL_RADIUS = 50           # Ball radius (bigger)
-BALL_SPEED = 3             # Ball movement speed
-BALL_HP = 1500             # Ball HP
-PROJECTILE_SPEED = 10      # Default projectile speed
+FRAME_SIZE = 450
+BALL_RADIUS = 40
+BALL_SPEED = 3
+BALL_HP = 1500
+PROJECTILE_SPEED = 10
+
+# Target mode
+TARGET_HP = 999999
+TARGET_RADIUS = 40
+GAME_TIME = 60
 
 # Character list
-CHARACTERS = ['poker_master', 'boxer', 'cowboy', 'tennis_winner', 'baddoctor']
+CHARACTERS = ['poker_master', 'boxer', 'cowboy', 'tennis_winner', 'baddoctor', 'pinpang_gay']

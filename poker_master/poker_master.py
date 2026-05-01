@@ -9,34 +9,54 @@ PROJECTILE_SPEED = 15
 
 
 def draw_suit_symbol(screen, suit, cx, cy, size=10, color=(0, 0, 0)):
-    """Draw suit symbol instead of letter"""
-    if suit in ['a', 'c']:  # Spades, Clubs - black
+    if suit in ['a', 'c']:
         color = (0, 0, 0)
-    else:  # Hearts, Diamonds - red
+    else:
         color = (255, 0, 0)
 
-    if suit == 'a':  # Spade
-        points = [(cx, cy - size), (cx + size // 2, cy - size // 2), (cx + size // 4, cy),
-                  (cx + size // 2, cy + size), (cx, cy + size // 2),
-                  (-cx + size // 2, cy + size), (-cx + size // 4, cy), (-cx + size // 2, cy - size // 2)]
-        # Simplified spade
+    if suit == 'a':
         pygame.draw.circle(screen, color, (cx - size // 4, cy), size // 2)
         pygame.draw.circle(screen, color, (cx + size // 4, cy), size // 2)
         pygame.draw.polygon(screen, color, [(cx - size // 3, cy), (cx, cy + size), (cx + size // 3, cy)])
         pygame.draw.rect(screen, color, (cx - 1, cy, 2, size))
-    elif suit == 'b':  # Heart
+    elif suit == 'b':
         pygame.draw.circle(screen, color, (cx - size // 4, cy - size // 4), size // 2)
         pygame.draw.circle(screen, color, (cx + size // 4, cy - size // 4), size // 2)
         pygame.draw.polygon(screen, color, [(cx - size // 2 + 2, cy - size // 4), (cx + size // 2 - 2, cy - size // 4),
                                             (cx, cy + size)])
-    elif suit == 'c':  # Club
+    elif suit == 'c':
         pygame.draw.circle(screen, color, (cx, cy - size // 2), size // 3)
         pygame.draw.circle(screen, color, (cx - size // 3, cy), size // 3)
         pygame.draw.circle(screen, color, (cx + size // 3, cy), size // 3)
         pygame.draw.rect(screen, color, (cx - 1, cy, 2, size))
-    elif suit == 'd':  # Diamond
+    elif suit == 'd':
         pygame.draw.polygon(screen, color,
                             [(cx, cy - size), (cx + size // 2, cy), (cx, cy + size), (cx - size // 2, cy)])
+
+
+class PokerProjectile(Projectile):
+    def __init__(self, x, y, vx, vy, damage, shooter, target, key_cards):
+        super().__init__(x, y, vx, vy, damage, shooter, target, (255, 255, 255), 14)
+        self.key_cards = key_cards
+
+    def draw(self, screen):
+        for i, card in enumerate(self.key_cards):
+            offset_x = -i * 2
+            offset_y = -i * 2
+            cx = int(self.x) + offset_x
+            cy = int(self.y) + offset_y
+
+            card_rect = pygame.Rect(cx - 10, cy - 7, 20, 14)
+            pygame.draw.rect(screen, (255, 255, 255), card_rect)
+            pygame.draw.rect(screen, (0, 0, 0), card_rect, 1)
+
+            value = card[:-1]
+            suit = card[-1]
+            tiny_font = pygame.font.Font(None, 10)
+            suit_color = (0, 0, 0) if suit in ['a', 'c'] else (255, 0, 0)
+            vt = tiny_font.render(value, True, suit_color)
+            screen.blit(vt, (cx - 8, cy - 6))
+            draw_suit_symbol(screen, suit, cx + 4, cy + 2, 4, suit_color)
 
 
 class PokerMaster:
@@ -44,7 +64,8 @@ class PokerMaster:
         self.char = char
         self.deck = PokerDeck()
         self.cards = []
-        self.result = None
+        self.key_cards = []
+        self.hand_type = ""
         self.damage = 0
         self.mult = 1
         self.timer = 0
@@ -54,10 +75,17 @@ class PokerMaster:
         self.phase = 0
         self.show_idx = 0
         self.show_timer = 0
+        self.merge_timer = 0
+        self.fade_timer = 0
         self.pending = []
+        self.has_static_target = False
+        self.target_x = 0
+        self.target_y = 0
 
     def update(self):
-        if not self.char.opponent or self.char.opponent.hp <= 0:
+        if self.has_static_target:
+            pass  # 有标靶就攻击
+        elif not self.char.opponent or self.char.opponent.hp <= 0:
             return
         if self.attacking:
             self.timer -= 1 / 60
@@ -66,10 +94,17 @@ class PokerMaster:
                 if self.show_timer <= 0 and self.show_idx < len(self.cards):
                     self.show_idx += 1
                     self.show_timer = 0.10
-                if self.show_idx >= len(self.cards) and self.timer < self.display_duration - 0.3:
-                    self.phase = 2
+                if self.show_idx >= len(self.cards):
+                    self.fade_timer -= 1 / 60
+                    if self.fade_timer <= 0:
+                        self.phase = 2
+                        self.merge_timer = 0.3
+            elif self.phase == 2:
+                self.merge_timer -= 1 / 60
+                if self.merge_timer <= 0:
+                    self.phase = 3
                     self.fire()
-            elif self.phase == 2 and self.timer <= 0:
+            elif self.phase == 3 and self.timer <= 0:
                 self.attacking = False
                 self.phase = 0
                 self.pending = []
@@ -79,21 +114,54 @@ class PokerMaster:
                 self.start()
 
     def start(self):
-        if not self.char.opponent or self.char.opponent.hp <= 0:
+        if not self.has_static_target and (not self.char.opponent or self.char.opponent.hp <= 0):
             return
         self.attacking = True
         self.phase = 1
         self.timer = self.display_duration
         self.cooldown = 0.8
-        self.cards = self.deck.draw(5)
-        hand, base = self.deck.evaluate(self.cards)
+        self.cards = self.deck.draw(5, self.char.hp, self.char.max_hp)
+        hand_type, base = self.deck.evaluate(self.cards)
+        self.hand_type = hand_type
         self.mult = self.deck.multiplier(self.char.hp, self.char.max_hp)
         self.damage = base * self.mult
-        self.result = f"{hand} Base:{base}"
+        self.key_cards = self.deck.get_key_cards(self.cards, hand_type)
+
+        if self.mult >= 15:
+            mult_text = f"{self.mult}!!!"
+        elif self.mult >= 10:
+            mult_text = f"{self.mult}!!"
+        elif self.mult >= 5:
+            mult_text = f"{self.mult}!"
+        else:
+            mult_text = str(self.mult)
+
+        self.result = f"{hand_type}(x{mult_text})"
         self.show_idx = 0
         self.show_timer = 0.10
+        self.fade_timer = 0.6
+
+    def set_target(self, x, y):
+        self.has_static_target = True
+        self.target_x = x
+        self.target_y = y
 
     def fire(self):
+        if self.has_static_target:
+            dx = self.target_x - self.char.x
+            dy = self.target_y - self.char.y
+            dist = math.sqrt(dx ** 2 + dy ** 2)
+            if dist > 0:
+                vx = dx / dist * PROJECTILE_SPEED
+                vy = dy / dist * PROJECTILE_SPEED
+            else:
+                vx, vy = PROJECTILE_SPEED, 0
+            p = PokerProjectile(self.char.x, self.char.y, vx, vy, self.damage, self.char, None, self.key_cards)
+            p.target_x = self.target_x
+            p.target_y = self.target_y
+            self.pending = [p]
+            return
+
         opp = self.char.opponent
         if not opp:
             return
@@ -105,7 +173,7 @@ class PokerMaster:
             vy = dy / dist * PROJECTILE_SPEED
         else:
             vx, vy = PROJECTILE_SPEED, 0
-        p = Projectile(self.char.x, self.char.y, vx, vy, self.damage, self.char, opp, (255, 215, 0), 8)
+        p = PokerProjectile(self.char.x, self.char.y, vx, vy, self.damage, self.char, opp, self.key_cards)
         self.pending = [p]
 
     def get_projectiles(self):
@@ -117,30 +185,54 @@ class PokerMaster:
         if not self.attacking:
             return
         x = self.char.x
-        y = self.char.y - self.char.radius - 80
-        w = len(self.cards) * 40 + 10
-        pygame.draw.rect(screen, (50, 50, 50), (x - w // 2, y - 35, w, 55))
-        pygame.draw.rect(screen, (200, 200, 200), (x - w // 2, y - 35, w, 55), 2)
+        y = self.char.y - self.char.radius - 30
+        card_y = y - 25
 
-        sf = pygame.font.Font(None, 18)
-        for i, c in enumerate(self.cards):
-            if i < self.show_idx:
-                cx = x - (len(self.cards) * 40) // 2 + 20 + i * 40
-                # Draw card background
-                cr = pygame.Rect(cx - 16, y - 12, 32, 24)
-                pygame.draw.rect(screen, (255, 255, 255), cr)
-                pygame.draw.rect(screen, (0, 0, 0), cr, 1)
-                # Draw value (number/letter)
+        if self.phase == 1 or self.phase == 2:
+            if self.phase == 1:
+                spacing = 30
+                display_cards = self.cards
+            else:
+                progress = 1 - (self.merge_timer / 0.3)
+                spacing = 30 * (1 - progress)
+                # 合并阶段只显示关键牌，重新居中排列
+                display_cards = [c for c in self.cards if c in self.key_cards]
+
+            for i, c in enumerate(display_cards):
+                if i >= self.show_idx and self.phase == 1:
+                    continue
+                is_key = c in self.key_cards
+
+                cx = x - (len(display_cards) - 1) * spacing / 2 + i * spacing
                 value = c[:-1]
                 suit = c[-1]
-                vt = sf.render(value, True, (0, 0, 0))
-                screen.blit(vt, (cx - 14, y - 10))
-                # Draw suit symbol
-                draw_suit_symbol(screen, suit, cx + 6, y + 2, 8)
+                suit_color = (0, 0, 0) if suit in ['a', 'c'] else (255, 0, 0)
+
+                if not is_key and self.phase == 1 and self.show_idx >= len(self.cards):
+                    alpha = max(0, int(255 * (self.fade_timer / 0.6)))
+                    if alpha <= 0:
+                        continue
+                    s = pygame.Surface((28, 20), pygame.SRCALPHA)
+                    s.fill((255, 255, 255, alpha))
+                    screen.blit(s, (cx - 5, card_y - 2))
+                    pygame.draw.rect(screen, (0, 0, 0), (cx - 5, card_y - 2, 28, 20), 1)
+                    tiny_font = pygame.font.Font(None, 14)
+                    vt = tiny_font.render(value, True, suit_color)
+                    screen.blit(vt, (cx - 2, card_y))
+                    draw_suit_symbol(screen, suit, cx + 12, card_y + 4, 6, suit_color)
+                    continue
+
+                card_rect = pygame.Rect(cx - 6, card_y - 3, 30, 22)
+                pygame.draw.rect(screen, (255, 255, 200), card_rect)
+                pygame.draw.rect(screen, (255, 200, 0), card_rect, 2)
+
+                tiny_font = pygame.font.Font(None, 14)
+                vt = tiny_font.render(value, True, suit_color)
+                screen.blit(vt, (cx - 2, card_y))
+                draw_suit_symbol(screen, suit, cx + 12, card_y + 4, 6, suit_color)
 
         if self.show_idx >= len(self.cards):
-            mf = pygame.font.Font(None, 20)
+            mf = pygame.font.Font(None, 18)
             t1 = mf.render(self.result, True, (255, 255, 0))
-            t2 = mf.render(f"x{self.mult}={self.damage}", True, (255, 165, 0))
-            screen.blit(t1, t1.get_rect(center=(x, y + 40)))
-            screen.blit(t2, t2.get_rect(center=(x, y + 60)))
+            text_y = y + 10
+            screen.blit(t1, t1.get_rect(center=(x, text_y)))
